@@ -86,17 +86,19 @@ func getFileIOCs(filename string) []string {
 }
 
 func main() {
-	var target string
-	var files []string
-
-	flag.StringVar(&target, "f", ".", "Target file or directory")
 	flag.Parse()
+
+	target := flag.Arg(0)
+	if target == "" {
+		target = "."
+	}
 
 	asset, err := os.Stat(target)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	var files []string
 	if asset.IsDir() {
 		files = getFiles(target)
 	} else {
