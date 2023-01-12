@@ -85,42 +85,35 @@ func getFileIOCs(filename string) []string {
 	return iocs
 }
 
-func printOutput(output chan string) {
-	results := make(map[string]bool)
-	for ioc := range output {
-		_, found := results[ioc]
-		if !found {
-			fmt.Println(ioc)
-			results[ioc] = false
-		}
-	}
-}
-
 func main() {
-	var directory string
+	var target string
+	var files []string
 
-	flag.StringVar(&directory, "d", ".", "Root directory")
+	flag.StringVar(&target, "f", ".", "Target file or directory")
 	flag.Parse()
 
-	var files []string = getFiles(directory)
+	asset, err := os.Stat(target)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
-	channel := make(chan string)
-	go printOutput(channel)
+	if asset.IsDir() {
+		files = getFiles(target)
+	} else {
+		files = append(files, target)
+	}
 
 	wg := new(sync.WaitGroup)
 	wg.Add(len(files))
 
 	for _, filename := range files {
 		go func(filename string) {
-			iocs := getFileIOCs(filename)
-			for _, ioc := range iocs {
-				channel <- ioc
+			defer wg.Done()
+			for _, ioc := range getFileIOCs(filename) {
+				fmt.Println(ioc)
 			}
-
-			wg.Done()
 		}(filename)
 	}
 
 	wg.Wait()
-	close(channel)
 }
