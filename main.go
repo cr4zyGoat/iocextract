@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"regexp"
 	"sync"
@@ -102,7 +103,13 @@ func getFileIOCs(filename string, domains bool) []string {
 
 	iocs = append(iocs, getFileSHA256(content))
 	iocs = append(iocs, getFileIPs(content)...)
-	iocs = append(iocs, getFileURLs(content)...)
+
+	for _, e := range getFileURLs(content) {
+		u, err := url.Parse(e)
+		if err == nil {
+			iocs = append(iocs, e, u.Hostname())
+		}
+	}
 
 	if domains {
 		iocs = append(iocs, getFileDomains(content)...)
@@ -112,7 +119,7 @@ func getFileIOCs(filename string, domains bool) []string {
 }
 
 func main() {
-	var pbdomains *bool = flag.Bool("domains", false, "Search for domains too")
+	var pbdomains *bool = flag.Bool("domains", false, "Intensive domain search (many false positives)")
 	flag.Parse()
 
 	var bdomains bool = *pbdomains
