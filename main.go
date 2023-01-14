@@ -10,8 +10,15 @@ import (
 	"sync"
 )
 
-const REGEX_IP string = "((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
-const REGEX_URL string = "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+const (
+	REGEX_IPV4   = "((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
+	REGEX_IPV6   = "((([0-9a-fA-F]){1,4})\\:){7}([0-9a-fA-F]){1,4}"
+	REGEX_URL    = "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+	REGEX_DOMAIN = "([A-Za-z0-9]|(?i:[a-z0-9])(?-i:[A-Z])|(?i:[A-Z])(?-i:[a-z])-?){1,63}(\\.[A-Za-z]{2,6})"
+	REGEX_MD5    = "[0-9A-Fa-f]{32}"
+	REGEX_SHA1   = "[A-Fa-f0-9]{40}"
+	REGEX_SHA256 = "[A-Fa-f0-9]{64}"
+)
 
 func getFiles(cdir string) []string {
 	var files, dirs []string
@@ -45,7 +52,7 @@ func getFileSHA256(data []byte) string {
 }
 
 func getFileIPs(data []byte) []string {
-	rex, err := regexp.Compile(REGEX_IP)
+	rex, err := regexp.Compile(REGEX_IPV4)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -72,7 +79,21 @@ func getFileURLs(data []byte) []string {
 	return urls
 }
 
-func getFileIOCs(filename string) []string {
+func getFileDomains(data []byte) []string {
+	rex, err := regexp.Compile(REGEX_DOMAIN)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var domains []string
+	matches := rex.FindAll(data, -1)
+	for _, match := range matches {
+		domains = append(domains, string(match))
+	}
+	return domains
+}
+
+func getFileIOCs(filename string, domains bool) []string {
 	var iocs []string
 	content, err := os.ReadFile(filename)
 	if err != nil {
@@ -82,12 +103,19 @@ func getFileIOCs(filename string) []string {
 	iocs = append(iocs, getFileSHA256(content))
 	iocs = append(iocs, getFileIPs(content)...)
 	iocs = append(iocs, getFileURLs(content)...)
+
+	if domains {
+		iocs = append(iocs, getFileDomains(content)...)
+	}
+
 	return iocs
 }
 
 func main() {
+	var pbdomains *bool = flag.Bool("domains", false, "Search for domains too")
 	flag.Parse()
 
+	var bdomains bool = *pbdomains
 	target := flag.Arg(0)
 	if target == "" {
 		target = "."
@@ -111,7 +139,7 @@ func main() {
 	for _, filename := range files {
 		go func(filename string) {
 			defer wg.Done()
-			for _, ioc := range getFileIOCs(filename) {
+			for _, ioc := range getFileIOCs(filename, bdomains) {
 				fmt.Println(ioc)
 			}
 		}(filename)
