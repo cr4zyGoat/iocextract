@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -106,9 +107,13 @@ func getFileIOCs(filename string, domains bool) []string {
 
 	for _, e := range getFileURLs(content) {
 		u, err := url.Parse(e)
-		if err == nil {
-			iocs = append(iocs, e, u.Hostname())
+		if err != nil {
+			continue
 		}
+
+		u.RawQuery = ""
+		u.Path = strings.Trim(u.Path, ")/'\"")
+		iocs = append(iocs, u.String(), u.Hostname())
 	}
 
 	if domains {
