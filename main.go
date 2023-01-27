@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -13,18 +15,51 @@ import (
 )
 
 const (
-	REGEX_IPV4   = "((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
-	REGEX_IPV6   = "((([0-9a-fA-F]){1,4})\\:){7}([0-9a-fA-F]){1,4}"
-	REGEX_URL    = "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
-	REGEX_DOMAIN = "([A-Za-z0-9]|(?i:[a-z0-9])(?-i:[A-Z])|(?i:[A-Z])(?-i:[a-z])-?){1,63}(\\.[A-Za-z]{2,6})"
-	REGEX_MD5    = "[0-9A-Fa-f]{32}"
-	REGEX_SHA1   = "[A-Fa-f0-9]{40}"
-	REGEX_SHA256 = "[A-Fa-f0-9]{64}"
+	TLDS_RESOURCE = "https://data.iana.org/TLD/tlds-alpha-by-domain.txt"
+	REGEX_IPV4    = "((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])"
+	REGEX_IPV6    = "((([0-9a-fA-F]){1,4})\\:){7}([0-9a-fA-F]){1,4}"
+	REGEX_URL     = "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+	REGEX_DOMAIN  = "([A-Za-z0-9]|(?i:[a-z0-9])(?-i:[A-Z])|(?i:[A-Z])(?-i:[a-z])-?){1,63}(\\.[A-Za-z]{2,6})"
+	REGEX_MD5     = "[0-9A-Fa-f]{32}"
+	REGEX_SHA1    = "[A-Fa-f0-9]{40}"
+	REGEX_SHA256  = "[A-Fa-f0-9]{64}"
 )
 
-func getFiles(cdir string) []string {
+var (
+	tlds []string
+)
+
+func getTLDs() {
+	res, err := http.Get(TLDS_RESOURCE)
+	if err != nil {
+		log.Println(err)
+	}
+	defer res.Body.Close()
+
+	body, _ := io.ReadAll(res.Body)
+	content := strings.ToLower(string(body))
+	tlds = strings.Split(content, "\n")
+
+	for strings.HasPrefix(tlds[0], "#") {
+		tlds = tlds[1:]
+	}
+}
+
+func getFiles(target string) []string {
 	var files, dirs []string
-	dirs = append(dirs, cdir)
+
+	asset, err := os.Stat(target)
+	if err != nil {
+		log.Println(err)
+		return files
+	}
+
+	if !asset.IsDir() {
+		files = append(files, target)
+		return files
+	}
+
+	dirs = append(dirs, target)
 
 	for len(dirs) > 0 {
 		var cdir string = dirs[0]
@@ -90,8 +125,21 @@ func getFileDomains(data []byte) []string {
 	var domains []string
 	matches := rex.FindAll(data, -1)
 	for _, match := range matches {
-		domains = append(domains, string(match))
+		dom := strings.ToLower(string(match))
+
+		if len(tlds) == 0 {
+			domains = append(domains, dom)
+			continue
+		}
+
+		for _, tld := range tlds {
+			if strings.HasSuffix(dom, "."+tld) {
+				domains = append(domains, dom)
+				continue
+			}
+		}
 	}
+
 	return domains
 }
 
@@ -133,17 +181,8 @@ func main() {
 		target = "."
 	}
 
-	asset, err := os.Stat(target)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	var files []string
-	if asset.IsDir() {
-		files = getFiles(target)
-	} else {
-		files = append(files, target)
-	}
+	files := getFiles(target)
+	getTLDs()
 
 	wg := new(sync.WaitGroup)
 	wg.Add(len(files))
