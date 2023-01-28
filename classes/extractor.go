@@ -20,7 +20,13 @@ const (
 )
 
 type extractor struct {
-	TLDs    []string
+	TLDs     []string
+	IoCTypes struct {
+		Hash   bool
+		Ip     bool
+		Url    bool
+		Domain bool
+	}
 	cregexs struct {
 		ip4    *regexp.Regexp
 		ip6    *regexp.Regexp
@@ -31,11 +37,18 @@ type extractor struct {
 }
 
 func (e *extractor) compileRegexs() {
+	e.IoCTypes.Hash = true
+	e.cregexs.sha256 = regexp.MustCompile(regexSha256)
+
+	e.IoCTypes.Ip = true
 	e.cregexs.ip4 = regexp.MustCompile(regexIPv4)
 	e.cregexs.ip6 = regexp.MustCompile(regexIPv6)
+
+	e.IoCTypes.Url = true
 	e.cregexs.url = regexp.MustCompile(regexUrl)
+
+	e.IoCTypes.Domain = true
 	e.cregexs.domain = regexp.MustCompile(regexDomain)
-	e.cregexs.sha256 = regexp.MustCompile(regexSha256)
 }
 
 func NewExtractor() extractor {
@@ -112,10 +125,19 @@ func (e *extractor) extractFileIoCs(filename string) ([]string, error) {
 		return []string{}, err
 	}
 
-	iocs := []string{e.calcSha256(data)}
-	iocs = append(iocs, e.extractIPs(data)...)
-	iocs = append(iocs, e.extractDomains(data)...)
-	iocs = append(iocs, e.extractUrls(data)...)
+	var iocs []string
+	if e.IoCTypes.Hash {
+		iocs = append(iocs, e.calcSha256(data))
+	}
+	if e.IoCTypes.Ip {
+		iocs = append(iocs, e.extractIPs(data)...)
+	}
+	if e.IoCTypes.Url {
+		iocs = append(iocs, e.extractUrls(data)...)
+	}
+	if e.IoCTypes.Domain {
+		iocs = append(iocs, e.extractDomains(data)...)
+	}
 
 	return iocs, nil
 }

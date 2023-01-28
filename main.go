@@ -11,7 +11,11 @@ import (
 )
 
 func main() {
-	proot := flag.String("t", ".", "Target file or directory to analyze")
+	proot := flag.String("f", ".", "Target file or directory to analyze")
+	pscanhash := flag.Bool("hash", false, "Just scan for hashes")
+	pscanip := flag.Bool("ip", false, "Just scan for IPs")
+	pscanurl := flag.Bool("url", false, "Just scan for URLs")
+	pscandomain := flag.Bool("domain", false, "Just scan for domains")
 	flag.Parse()
 
 	var root string = *proot
@@ -38,6 +42,13 @@ func main() {
 
 	extractor := classes.NewExtractor()
 	extractor.TLDs = tlds
+
+	if *pscanhash || *pscanip || *pscanurl || *pscandomain {
+		extractor.IoCTypes.Hash = *pscanhash
+		extractor.IoCTypes.Ip = *pscanip
+		extractor.IoCTypes.Url = *pscanurl
+		extractor.IoCTypes.Domain = *pscandomain
+	}
 
 	output := make(chan string)
 	go func() {

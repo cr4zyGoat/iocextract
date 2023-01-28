@@ -5,8 +5,9 @@ Golang program to look recursively for a possible IoCs (Hashes, IPs, domains, UR
 ## Features
 
 Some features already implemented are:
+- Inspect one file or a whole directory recursively
+- Select what type of IoC are you looking for
 - Multiple threads
-- Inspect one file or a whole directory recursively.
 
 ## Example usages
 
@@ -19,13 +20,13 @@ Look recursively inside the current folder (. by default):
 Analyze a given file:
 
 ```bash
-./iocextract -t {file}
+./iocextract -f {file}
 ```
 
-Find recursively inside a given folder:
+Look just for URLs :
 
 ```bash
-./iocextract -t {folder}
+./iocextract -url
 ```
 
 All options:
@@ -33,8 +34,16 @@ All options:
 ```
 ./iocextract --help
 Usage of ./iocextract:
-  -t string
+  -domain
+    	Just scan for domains
+  -f string
     	Target file or directory to analyze (default ".")
+  -hash
+    	Just scan for hashes
+  -ip
+    	Just scan for IPs
+  -url
+    	Just scan for URLs
 ```
 
 ## Installation
