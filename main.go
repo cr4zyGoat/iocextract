@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"cr4zygoat/iocextract/classes"
-	"cr4zygoat/iocextract/utilities"
+	"github.com/cr4zygoat/iocextract/classes"
+	"github.com/cr4zygoat/iocextract/utilities"
 )
 
 func main() {
